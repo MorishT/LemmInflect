@@ -1,4 +1,5 @@
 import re
+from functools import lru_cache
 from   ..slexicon.SKey import *
 from   ..kmodels.KInfer import getKInferInstance
 from   ..kmodels.ModelInflInData import ModelInflInData
@@ -14,6 +15,7 @@ class MorphologyStyleModel(object):
         self.output_classes = self.kinfer.getOutputEnum()
 
     # Get the morphology style, reg, regd or glreg
+    @lru_cache(maxsize=1000000)
     def getStyle(self, lemma, upos):
         category = uposToCategory(upos)
         try:

@@ -1,10 +1,12 @@
 from   abc import ABC, abstractmethod
+from functools import lru_cache
 import numpy as np
 from   .KerasModel import limitTFMem
 from   ..utils.DataContainer import DataContainer
 
 
 # Factory style method for creating the KInfer object
+@lru_cache(maxsize=1000000)
 def getKInferInstance(kitype, model_fn):
     if kitype == 'numpy':
         return KInferWithNumpy(model_fn)

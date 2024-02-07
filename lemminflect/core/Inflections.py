@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 from   copy import deepcopy
 from   ..utils.Singleton import Singleton
 from   .InflectionRules  import InflectionRules, MorphologyStyleModel
@@ -8,7 +9,6 @@ from   ..codecs.InflectionLUCodec import InflectionLUCodec
 from   ..codecs.OverridesCodec import OverridesCodec
 from   .Lemmatizer import Lemmatizer
 from   .. import config
-
 
 # This is the top-level class that agregates logic to get inflections
 # from the dictionary or by using InflectionRules
@@ -35,6 +35,7 @@ class Inflections(Singleton):
     # a capitalized proper-noun, then upos must be 'PROPN'
     # Return a dictionary of forms with the Penn Treebank tag as the key and a tuple
     # of the possible spellings as the valueif token.pos_ in self.DICT_UPOS_TYPES:
+    @lru_cache(maxsize=1000000)
     def getAllInflections(self, lemma, upos=None):
         if upos is not None and upos not in self.DICT_UPOS_TYPES:
             self.logger.warning('Invalid upos type = %s', upos)
@@ -44,11 +45,16 @@ class Inflections(Singleton):
         if upos == 'PROPN':
             lemma = applyCapsStyle(lemma, 'first_upper')
             upos = 'NOUN'   # infl_dict originally has category which only has 'noun'
+
         # Get the forms for the lemma from the main database
-        forms = deepcopy(self._getInflDict().get(lemma, {}))
+        # forms = deepcopy(self._getInflDict().get(lemma, {}))   # SLOW!
+        forms = self._getInflDict().get(lemma, {})
         # Apply any overrides
         overrides = deepcopy(self._getOverridesDict().get(lemma, {}))
-        forms.update( overrides )
+        if len(overrides) > 0:
+            forms = deepcopy(forms)  # deepcopy is slow, so we only do it if we have to
+            forms.update( overrides )
+
         # If there's a upos defined then return only those types
         if upos is not None:
             candidate_tags = uposToTags(upos)
@@ -61,6 +67,7 @@ class Inflections(Singleton):
     # Get all inflections using the Inflection Rules
     # Return a dictionary of inflections, keyed by Penn Tag  and a tuple
     # of the possible spellings as the value
+    @lru_cache(maxsize=1000000)
     def getAllInflectionsOOV(self, lemma, upos):
         if upos not in self.DICT_UPOS_TYPES:
             self.logger.warning('Invalid upos type = %s', upos)
@@ -96,6 +103,7 @@ class Inflections(Singleton):
 
     # Get a single inflections for the tag.  Use OOV rules if needed.
     # Return a tuple of possible spellings
+    @lru_cache(maxsize=1000000)
     def getInflection(self, lemma, tag, inflect_oov=True):
         # Get the forms for the lemma from the main database
         # and use the treebank tag to find the correct return value
